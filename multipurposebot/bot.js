@@ -1,6 +1,27 @@
 const Telegraf = require('telegraf');
-const bot = new Telegraf('1531480023:AAFylAWHy7Dd4LfVMpz8ooXo1khpt7rrlNE');
+const bot = new Telegraf('1439806464:AAGOv3XQS4BA6Gygp896ZILiHqUtXrcJq60');
 const axios = require("axios"); 
+
+const helpMessage = `
+Enter one of the following commands:
+/start - start the bot
+/help - command reference
+/weather - check the weather condition with a specific city name
+/module - check a module information from the NUS mods
+/carpark - check the carpark vacancy report in many places in Singapore
+send a location to the telegram bot - check the weather condition at that specific location
+`;
+
+//START COMMAND
+bot.start((ctx) => {
+    ctx.reply("Hi I am SGMadeEasy Bot");
+    ctx.reply(helpMessage);
+  })
+  
+//HELP COMMAND
+bot.help((ctx) => {
+    ctx.reply(helpMessage);
+  })
 
 //MODULE COMMAND
 bot.command('module', (ctx) => {
@@ -78,16 +99,16 @@ ${lecture_slots}`,
 
 //WEATHER COMMAND WITH CITY NAME
 bot.command("weather", async (ctx) => {
-  let input = ctx.message.text; //get input from user
-  let inputArray = input.split(" "); //split input by spaces
-  let message = ""; //create variable for message to output to user
+  let input = ctx.message.text; 
+  let inputArray = input.split(" "); 
+  let message = ""; 
 
-  if (inputArray.length == 1) { //check if array just contains "/echo"
+  if (inputArray.length == 1) { 
     ctx.reply("Empty input");
     return; 
   } else {
-    inputArray.shift(); //remove first element in array - "/echo"
-    message = inputArray.join(" ").trim(); //join all elements into a string separated by spaces
+    inputArray.shift(); 
+    message = inputArray.join(" ").trim(); 
   }
 
   try{
@@ -127,14 +148,14 @@ bot.on("location", async (ctx) => {
   }
 })
 
-//CAR PARK COMMAND
+
+//CARPARK COMMAND
 var carparks;
 var areaCarparks;
 var index = [];
-for (var i = 0; i < 30; i++) {
+for (var i = 0; i < 30; i++) { // a magic number indeed
     index[i] = i.toString();
 }
-console.log(index);
 bot.command("carpark", async (ctx) => {
     const res = await axios.get('http://datamall2.mytransport.sg/ltaodataservice/CarParkAvailabilityv2', {
   headers: {
@@ -143,7 +164,7 @@ bot.command("carpark", async (ctx) => {
   }
 })
     carparks = res.data.value;
-    ctx.telegram.sendMessage(ctx.chat.id, "Looking for carpark slots? Daijoubulala got yar back",
+    ctx.telegram.sendMessage(ctx.chat.id, "Driving and finding carpark slots? Choose your area.",
     {
         reply_markup: {
             inline_keyboard: [[{text: 'Orchard', callback_data: 'Orchard'}, {text: 'Marina', callback_data: 'Marina'}],
@@ -158,7 +179,7 @@ bot.command("carpark", async (ctx) => {
 
 bot.action("back", (ctx) => {
     ctx.deleteMessage();
-    ctx.telegram.sendMessage(ctx.chat.id, "Looking for carpark slots? Daijoubulala got yar back",
+    ctx.telegram.sendMessage(ctx.chat.id, "Driving and finding carpark slots? Choose your area.",
     {
         reply_markup: {
             inline_keyboard: [[{text: 'Orchard', callback_data: 'Orchard'}, {text: 'Marina', callback_data: 'Marina'}],
@@ -173,13 +194,13 @@ bot.action("back", (ctx) => {
 
 
 const areas = ['Orchard', 'Marina', 'Harbfront', 'JurongLakeDistrict', 'Others'];    
-bot.action(areas, (ctx) => {
+bot.action(areas, (ctx) => { //
     const carparksFilter = carparks.filter((elem) => {
         return elem.Area == ctx.match;
     })
     ctx.deleteMessage();
     areaCarparks = carparksFilter;
-    ctx.telegram.sendMessage(ctx.chat.id, "As per your request sir",
+    ctx.telegram.sendMessage(ctx.chat.id, "Click on the carpark you wish to see remaining slots",
         {
             reply_markup: {
                 inline_keyboard: mapLocation(carparksFilter)
@@ -189,20 +210,27 @@ bot.action(areas, (ctx) => {
         })
 });    
 
-bot.action(index, (ctx) => {
+bot.action(index, (ctx) => { // send message to tell the carpark slots
+    ctx.answerCbQuery();
     const slot = areaCarparks[parseInt(ctx.match, 10)].AvailableLots;
-    const name = areaCarparks[parseInt(ctx.match, 10)].Development;
-    ctx.reply(`There are ${slot} carpark slots remaining in ${name}`);
+    var name = areaCarparks[parseInt(ctx.match, 10)].Development;
+    if (name == "Bugis+") {
+        name = "Bugis\\+";
+    }
+    ctx.telegram.sendMessage(ctx.chat.id,
+`*${name}*
+*${slot}* slots`,
+                             {parse_mode: 'MarkdownV2'});
 })
 
-function mapLocation(A) {
+function mapLocation(A) { // to form the inline query array
     arr = []
     var count = 0;
     var i, j
     for (i = 0; i < A.length / 2; i++) {
         arr[i] = [];
         for (j = 0; j < 2; j++) {
-            arr[i][j] = {text: A[2 * i + j].Development + " (" + A[2 * i + j].AvailableLots + ")",
+            arr[i][j] = {text: A[2 * i + j].Development,
                          callback_data: (2 * i + j).toString()};
             count++;
             if (count == A.length) {
@@ -217,5 +245,6 @@ function mapLocation(A) {
     }
     return arr;
 }
+
 
 bot.launch();
